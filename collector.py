@@ -97,9 +97,8 @@ def process(pkt):
             # Probe response
             return
         else:
-            d = {"type": pkt.subtype}
-            unknowns[pkt.subtype] = pkt
-
+            # Unknown subtype
+            return
     elif pkt.type == 2:
         # Data
         d = {
