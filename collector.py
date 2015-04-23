@@ -5,11 +5,12 @@ import scapy.all as sp
 import rethinkdb as r
 
 import local_settings
+from utils import order_data_frame
 
 
 dBm = lambda x: -(256 - x)
 
-r.connect('localhost', 28015, db="mtrack").repl()
+r.connect(local_settings.DB_HOST, 28015, db="mtrack").repl()
 
 try:
     r.db_create('mtrack').run()
@@ -31,14 +32,21 @@ except r.RqlRuntimeError:
 
 
 def get_rssi(packet):
-    return dBm(packet.notdecoded[0x16]), dBm(packet.notdecoded[0x1A])
+    rssi = dBm(packet.notdecoded[0x16 - local_settings.OFFSET])
+    try:
+        rssi2 = dBm(packet.notdecoded[0x1A - local_settings.OFFSET])
+    except IndexError:
+        rssi2 = rssi
+
+    return (rssi, rssi2)
 
 
 def infer(d):
     if d['type'] == 'Beacon':
         r.table("aps").insert({
             'bssid': d['mac'],
-            'essid': d['essid']
+            'essid': d['essid'],
+            "lastSeen": r.now()
         }, conflict="update").run()
     elif d['type'] == 'Probe':
         r.table('stations').insert({
@@ -47,19 +55,18 @@ def infer(d):
             r.table('stations').get(d['mac']).update({
                 'probes': r.branch(~r.row['probes'].contains(d['essid']),
                                    r.row['probes'].append(d['essid']),
-                                   r.row['probes'])
+                                   r.row['probes']),
+                "lastSeen": r.now()
             }).run()
     elif d['type'] == 'Data':
-        mac_is_ap = bool(r.table('aps').get(d['mac']).run())
-        station_mac, ap_mac = ((d['mac2'], d['mac'])
-                               if mac_is_ap else (
-            d['mac'], d['mac2']))
+        ap_mac, station_mac = order_data_frame(d)
         r.table('stations').insert({
             'mac': station_mac, 'probes': [], 'aps': []}).run()
         r.table('stations').get(station_mac).update({
             'aps': r.branch(~r.row['aps'].contains(ap_mac),
                             r.row['aps'].append(ap_mac),
-                            r.row['aps'])
+                            r.row['aps']),
+            "lastSeen": r.now()
         }).run()
 
 
@@ -123,7 +130,7 @@ def process(pkt):
         d['essid'] = d['essid'].decode('utf8', errors='replace')
     d['rssi'] = r1
     d['rssi2'] = r2
-    d['freq'] = struct.unpack("h", pkt.notdecoded[0x12:0x14])[0]
+    d['freq'] = struct.unpack("h", pkt.notdecoded[0x12 - local_settings.OFFSET:0x14 - local_settings.OFFSET])[0]
     d['timestamp'] = r.now()
     d['sensor'] = local_settings.SENSOR_ID
 
@@ -134,7 +141,7 @@ def process(pkt):
 
 if __name__ == '__main__':
     p = subprocess.Popen(
-        "/usr/bin/sudo /usr/sbin/tcpdump -q -U -w - -i mon0".split(" "),
+        ("/usr/bin/sudo /usr/sbin/tcpdump -q -U -w - -i "+local_settings.INTERFACE).split(" "),
         stdout=subprocess.PIPE)
     try:
         sp.sniff(offline=p.stdout, store=0, prn=process)

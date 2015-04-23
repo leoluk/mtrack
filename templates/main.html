@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>MobileTracking</title>
+    <link rel="stylesheet" href="static/vis.min.css"/>
+    <link rel="stylesheet" href="static/css/bootstrap.css"/>
+    <link rel="stylesheet" href="static/css/bootstrap-theme.css"/>
+    <script src="static/jquery-2.1.3.min.js"></script>
+    <script src="static/vis.min.js"></script>
+    <script src="static/js/bootstrap.min.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+        }
+
+        #visualization {
+            height: 100px;
+        }
+
+        #visualization {
+            min-height: 100%;
+            height: 100%;
+            margin: 0 auto -100px; /*Allow for footer height*/
+            vertical-align: bottom;
+        }
+
+    </style>
+</head>
+<body>
+<div id="visualization"></div>
+
+<script type="text/javascript">
+    var nodes, edges, network;
+
+    var container = document.getElementById('visualization');
+    var options = {};
+
+    var init_data = {{ init_data|safe }};
+
+    nodes = new vis.DataSet([
+        {id: "S1", color: "red", x: 0, y: 0},
+        {id: "S2", color: "red", x: -500, y: 0},
+        {id: "S3", color: "red", x: 500, y: 200}
+    ]);
+
+    edges = new vis.DataSet();
+
+    network = new vis.Network(container, {nodes: nodes, edges: edges}, options);
+
+    function processMessage(message) {
+
+        switch (message['event']) {
+            case 'stationSeen':
+                var id = message['mac'];
+                var snum = message['sensor'];
+                nodes.update({
+                    id: id,
+                    title: id,
+                    label: "",
+                    date: message['date'],
+                    shape: "circle"
+                });
+                edges.update({
+                    id: snum + '-' + id,
+                    from: snum,
+                    to: id,
+                    date: message['date'],
+                    length: message['distance']
+                });
+                if (message['essid']) {
+                    nodes.update({
+                        id: message['essid'],
+                        label: message['essid'],
+                        color: "gray",
+                        shape: "box",
+                        mass: 2
+                    });
+                    edges.update({
+                        id: id + '-' + message['essid'],
+                        from: id,
+                        to: message['essid'],
+                        //date: message['date'],  // do not remove probe requests
+                        //length: message['distance']
+                    });
+                }
+                break;
+            case 'APSeen':
+                nodes.update({
+                    id: message['bssid'],
+                    label: message['essid'],
+                    color: "green",
+                    shape: "box",
+                    mass: 2
+                });
+                break;
+            case 'assocSeen':
+                nodes.update({
+                    id: message['station'],
+                    label: "",
+                    title: message['station'],
+                    date: message['date'],
+                    shape: "circle",
+                    color: "orange"
+                });
+                nodes.update({
+                    id: message['ap'],
+                    color: "green",
+                    shape: "box",
+                    mass: 2
+                });
+                edges.update({
+                    id: message['station'] + '-' + message['ap'],
+                    from: message['station'],
+                    to: message['ap'],
+                    date: message['date']
+                    //length: message['distance']
+                });
+                edges.update({
+                    id: message['sensor'] + '-' + message['station'],
+                    from: message['sensor'],
+                    to: message['station'],
+                    date: message['date'],
+                    length: message['distance']
+                });
+                break;
+        }
+    }
+
+    var jsonStream = new EventSource('/event_stream');
+    jsonStream.onmessage = function (e) {
+        var message = JSON.parse(e.data);
+        processMessage(message);
+    };
+
+    for (var i = 0; i < init_data.length; i++) {
+        processMessage(init_data[i]);
+    }
+
+    setInterval(function () {
+        edges.forEach(function (item) {
+            console.log(item['date']);
+            var diff = (new Date() - new Date(item['date'])) / 1000;
+            if (diff > {{ timeout }}) {
+                edges.remove(item['id']);
+            }
+        })
+    }, 1000);
+
+
+</script>
+</body>
+</html>
