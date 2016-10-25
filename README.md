@@ -6,4 +6,4 @@ It supports multiple receiver nodes. Nodes moving between different receiver nod
 
 ## Screenshot
 
-![screenshot](screenshot.png)
+[screenshot](screenshot.png)
