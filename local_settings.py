@@ -1,6 +1,6 @@
 
 DB_HOST = "localhost"
-INTERFACE = "mon2"
-SENSOR_ID = 3
+INTERFACE = "mon0"
+SENSOR_ID = 1
 TIMEOUT = 60
 OFFSET = 8

@@ -127,7 +127,7 @@ def process(pkt):
 
     r1, r2 = get_rssi(pkt)
     if "essid" in d:
-        d['essid'] = d['essid'].decode('utf8', errors='replace')
+        d['essid'] = d['essid'].decode('utf8', errors='replace').replace('\x00', '')
     d['rssi'] = r1
     d['rssi2'] = r2
     d['freq'] = struct.unpack("h", pkt.notdecoded[0x12 - local_settings.OFFSET:0x14 - local_settings.OFFSET])[0]
@@ -140,6 +140,7 @@ def process(pkt):
 
 
 if __name__ == '__main__':
+    print("Sensor ID %d" % local_settings.SENSOR_ID)
     p = subprocess.Popen(
         ("/usr/bin/sudo /usr/sbin/tcpdump -q -U -w - -i "+local_settings.INTERFACE).split(" "),
         stdout=subprocess.PIPE)

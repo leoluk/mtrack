@@ -36,6 +36,7 @@
 
     var container = document.getElementById('visualization');
     var options = {};
+    var lite = (window.location.hash == "#lite");
 
     var init_data = {{ init_data|safe }};
 
@@ -80,20 +81,22 @@
                     edges.update({
                         id: id + '-' + message['essid'],
                         from: id,
-                        to: message['essid'],
+                        to: message['essid']
                         //date: message['date'],  // do not remove probe requests
                         //length: message['distance']
                     });
                 }
                 break;
             case 'APSeen':
-                nodes.update({
-                    id: message['bssid'],
-                    label: message['essid'],
-                    color: "green",
-                    shape: "box",
-                    mass: 2
-                });
+                if (!lite) {
+                    nodes.update({
+                        id: message['bssid'],
+                        label: message['essid'],
+                        color: "green",
+                        shape: "box",
+                        mass: 2
+                    });
+                }
                 break;
             case 'assocSeen':
                 nodes.update({
@@ -104,19 +107,21 @@
                     shape: "circle",
                     color: "orange"
                 });
-                nodes.update({
-                    id: message['ap'],
-                    color: "green",
-                    shape: "box",
-                    mass: 2
-                });
-                edges.update({
-                    id: message['station'] + '-' + message['ap'],
-                    from: message['station'],
-                    to: message['ap'],
-                    date: message['date']
-                    //length: message['distance']
-                });
+                if (!lite) {
+                    nodes.update({
+                        id: message['ap'],
+                        color: "green",
+                        shape: "box",
+                        mass: 2
+                    });
+                    edges.update({
+                        id: message['station'] + '-' + message['ap'],
+                        from: message['station'],
+                        to: message['ap'],
+                        date: message['date']
+                        //length: message['distance']
+                    });
+                }
                 edges.update({
                     id: message['sensor'] + '-' + message['station'],
                     from: message['sensor'],
