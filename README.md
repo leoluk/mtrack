@@ -6,6 +6,7 @@ It supports multiple receiver nodes. Nodes moving between different receiver nod
 move on the map, which allows crude location tracking inside large buildings.
 
 Project was created to demonstrate the dangers of 802.11 probe request tracking.
+Hacky hackathon code, don't look too closely!
 
 ## Screenshot
 
